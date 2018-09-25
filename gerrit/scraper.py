@@ -43,7 +43,7 @@ class GerritScraper(object):
         workers: int, optional
             The number of worksers used during parallel querying (default is 5)
         """
-        self.logger = logging.getLogger('gerrit_scraper.GerritScraper')
+        self.logger = logging.getLogger('gerrit.scraper.GerritScraper')
         self.base_url = base_url
         self.auth = auth
         self.client =  GerritRestAPI(url=self.base_url, auth = self.auth)

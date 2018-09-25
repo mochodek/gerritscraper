@@ -113,7 +113,7 @@ class MongoDBStore(object):
         self.db_name = db_name
         self.clear_before = clear_before
         self.skip_existing = skip_existing
-        self.logger = logging.getLogger('gerrit_scraper.MongoDBStore')
+        self.logger = logging.getLogger('gerrit.store.MongoDBStore')
         
     def open(self):
         """Opens connection to the database and purges the collection if requested."""
