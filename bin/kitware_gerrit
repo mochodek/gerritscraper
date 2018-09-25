@@ -1,0 +1,26 @@
+from gerrit.store import MongoDBStore
+from gerrit.scraper import GerritScraper
+
+import logging
+import sys
+
+# Create logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+handler = logging.StreamHandler(sys.stdout)
+
+# Create formatter and add it to the handler
+formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+if __name__ == '__main__':
+    gerrit_url = "http://review.source.kitware.com/"
+
+    mongo_store = MongoDBStore(db_name="kitware_gerrit", clear_before=False, skip_existing=True)
+
+    scraper = GerritScraper(gerrit_url, stores=[mongo_store], workers=6)
+    scraper.scrap_and_store_changes(n=30, pages=10000, last_revision_only=True)
+
+    scraper.p.close()
