@@ -27,7 +27,8 @@ def has_votes(change):
 class GerritScraper(object):
     """A facade to scrap the data from a Gerrit instance."""
     
-    def __init__(self, base_url, auth=None, stores=[], sleep_between_pages=0, workers=5):
+    def __init__(self, base_url, auth=None, stores=[], sleep_between_pages=0, workers=5,
+                skip_existing=False, max_files=15, only_modified_chunks=False):
         """
         Parameters
         ----------
@@ -42,6 +43,12 @@ class GerritScraper(object):
             Pause time between each page being fetched measured in seconds (default is 0)
         workers: int, optional
             The number of worksers used during parallel querying (default is 5)
+        skip_existing : bool
+            Whether should skip scraping a change that exists all stores (default is True).
+        max_files : int
+            Maximum files to process within a revision - all other will be skipped (default is 15)
+        only_modified_chunks : bool
+            Whether to store only the modified chunks (default is False)
         """
         self.logger = logging.getLogger('gerrit.scraper.GerritScraper')
         self.base_url = base_url
@@ -52,6 +59,9 @@ class GerritScraper(object):
         self.workers = workers
         self.p = None
         self.stats = {'stored': 0, 'processed': 0}
+        self.skip_existing = skip_existing
+        self.max_files = max_files
+        self.only_modified_chunks = only_modified_chunks
 
 
     def _fill_revision_with_files_diffs(self, revision, change):
@@ -68,6 +78,7 @@ class GerritScraper(object):
         if len(file_ids_urls) > 0:
             
             try:
+                diffs_urls = diffs_urls[0:self.max_files]
                 file_diffs = self.p.starmap(get_diff, zip(diffs_urls, repeat(self.client)))
             except:
                 self.logger.info("Exception while processing change {}, revision {}: {}".format(
@@ -76,8 +87,20 @@ class GerritScraper(object):
             
             if len(file_diffs) > 0 :
                 for i, file_id in enumerate(file_ids):
+                    if i >= self.max_files:
+                        continue 
                     file_info = files[file_id]
                     file_info['diff'] = file_diffs[i]
+                    if self.only_modified_chunks:
+                        to_remove = []
+                        for chunk in file_info['diff']['content']:
+                            if 'ab' in chunk.keys():
+                                to_remove.append(chunk)
+                        self.logger.info("Removing {} chunks from change {}, revision {}".format(
+                                        len(to_remove), change['_number'], revision['_number']))        
+                        for remove_obj in to_remove:
+                            file_info['diff']['content'].remove(remove_obj)
+
         
         self.logger.info("Processing change {}, revision {}: files {}".format(
                 change['_number'], revision['_number'], len(file_diffs)))
@@ -165,11 +188,24 @@ class GerritScraper(object):
                     load_next_page = False
 
                 for change in changes:
+                    processed_change = None
                     self.stats['processed'] += 1
                     self.logger.info("#{}: Processing change {}".format(proc_changes, change['_number']))
-                    processed_change = self._process_change(change, last_revision_only)
+                    if self.skip_existing == True:
+                        exists_in_no_stores = 0
+                        for store in self.stores:
+                            exists_in_no_stores += 1 if store.exists(change['_number']) else 0
+                        if exists_in_no_stores != len(self.stores):
+                            processed_change = self._process_change(change, last_revision_only)
+                        else:
+                            self.logger.info("#{}: Skipping without processing change because it exists {}".format(
+                                proc_changes, change['_number']))
+                    else:
+                        processed_change = self._process_change(change, last_revision_only)
+                    
                     proc_changes += 1
-                    yield processed_change
+                    if processed_change is not None:
+                        yield processed_change
             except:
                 fails += 1
                 self.logger.error(traceback.format_exc())

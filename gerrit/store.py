@@ -124,6 +124,25 @@ class MongoDBStore(object):
             self.collection.delete_many({})
         self.db.add_son_manipulator(KeyAndIntTransform(".", "__dot__"))
 
+
+    def exists(self, change_number):
+        """Checks if a change with a given change_number exists in the datasetore.
+
+        Parameters
+        ----------
+        change_number: int
+            A change number to look for.
+
+        Returns
+        ---------
+        True if change is already in the store, othewise False.
+        """
+        document = self.collection.find_one(
+                {"_number":{"$eq":change_number}})
+        
+        self.logger.info("Change {} exists = {}".format(change_number, document is not None))
+        return document is not None 
+
     def save_change(self, change):
         """Saves a Gerrit change to the MongoDB.
 
@@ -174,6 +193,21 @@ class JSONFileStore(object):
         self.file_path = file_path
         self._records_stored = 0
         self._file = None
+
+    def exists(self, change_number):
+        """Checks if a change with a given change_number exists in the datasetore.
+        Only for compatibility since it always returns False.
+
+        Parameters
+        ----------
+        change_number: int
+            A change number to look for.
+
+        Returns
+        ---------
+        Always False.
+        """
+        return False
 
     def open(self):
         """Ereases the output file and then opens it for writing."""
