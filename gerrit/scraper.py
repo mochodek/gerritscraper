@@ -51,6 +51,7 @@ class GerritScraper(object):
         self.sleep_between_pages = sleep_between_pages
         self.workers = workers
         self.p = None
+        self.stats = {'stored': 0, 'processed': 0}
 
 
     def _fill_revision_with_files_diffs(self, revision, change):
@@ -164,6 +165,7 @@ class GerritScraper(object):
                     load_next_page = False
 
                 for change in changes:
+                    self.stats['processed'] += 1
                     self.logger.info("#{}: Processing change {}".format(proc_changes, change['_number']))
                     processed_change = self._process_change(change, last_revision_only)
                     proc_changes += 1
@@ -207,9 +209,10 @@ class GerritScraper(object):
                 if store_decision_maker(change):
                     self.logger.info("Storing change {}".format(change['_number']))
                     for store in self.stores:
-                        store.save_change(change)
+                        self.stats['stored'] += store.save_change(change)
                 else:
                     self.logger.info("Skipping change {}".format(change['_number']))
+
         except:
             self.logger.error(traceback.format_exc())
         finally:

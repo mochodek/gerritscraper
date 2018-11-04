@@ -131,6 +131,10 @@ class MongoDBStore(object):
         ----------
         change: change from Gerrit
             A change from Gerrit that is supposed to be saved.
+
+        Returns
+        ---------
+        Number of changes stored.
         """
         # remove _more_changes
         if '_more_changes' in change.keys():
@@ -148,8 +152,10 @@ class MongoDBStore(object):
         else:
             try:
                 self.collection.save(change)
+                return 1
             except:
                 self.logger.error(traceback.format_exc())
+        return 0
 
     def close(self):
         """Closes the connection to the database."""
@@ -183,6 +189,10 @@ class JSONFileStore(object):
         ----------
         change: change from Gerrit
             A change from Gerrit that is supposed to be saved.
+        
+        Returns
+        ---------
+        Number of changes stored.
         """
         # remove _more_changes
         if '_more_changes' in change.keys():
@@ -193,6 +203,7 @@ class JSONFileStore(object):
             self.file.write(",\n")
         self.file.write(change_json)
         self._records_stored += 1
+        return 1
 
     def close(self):
         """Closes the output file."""
